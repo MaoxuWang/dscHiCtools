@@ -9,20 +9,25 @@ The following packages are required:
 - multiprocess>=0.70.6.1
 - pandas>=0.23.4
 - pybktree==1.1
+- cooler>=0.9.1
 ```shell
+    git clone https://github.com/MaoxuWang/dscHiCtools.git
+    cd dscHiCtools/
     python setup.py install
 ```
 
-### 2. Add barcodes to read name
+### 2. Map barcode to whitelist & Add it to read name
 R2 file (or I2 file) records the cell barcode information, add it to the read name of R1 and R3
 ```shell
-    dscHiCtools addBarcode \
+    dscHiCtools mapBarcode \
         --read1 $Read1 \
-        --read2 $Read2 \
-        --read3 $Read3 \
-        -o $outdir \
+        --index $Read2 \
+        --read2 $Read3 \
+        --outdir $outdir/countCB \
         --sampleName $sampleid \
-        --threads n
+        --threads $threads \
+        --n_lines -1 \ # -1 means all of reads 
+        --chemistry "atac" # atac or multiome
 ```
 
 #### outputs:
@@ -30,50 +35,45 @@ R2 file (or I2 file) records the cell barcode information, add it to the read na
 - .R2.barcoded.fastq.gz
 - .R3.barcoded.fastq.gz
 
-### 3. Map barcodes from bam file
-map cell barcodes to reference (true) and add "CB" tag
+### 3. Add 'CB' tag to bam file
+add "CB" tag to make it compatible for main downstream analysis 
 ```shell
-    dscHiCtools mapBarcode \
-        --input_bam ${sampleid}.sorted.bam \
-        --output_bam ${sampleid}.cellbarcoded.bam \
-        --outMarkDuplicates \ ## whether to print fragment information to mark duplicates
-        --min_mismatch 1 \ ## min mismatch allowed (hamming distance)
-        --ref_barcode FILE \ ## barcode whitelist
-        --threads n
+    dscHiCtools addTag \
+        --input_bam $outdir/align/${sampleid}.sorted.bam \
+        --output_bam $outdir/align/${sampleid}.cellbarcoded.bam \
+        --threads $SLURM_CPUS_PER_TASK \
+        --samtools $samtools # default: Your Environment Variables
 ```
-
+Note that you have to sort `samtools sort in.bam > out.sorted.bam` the input bam file.
 #### outputs:
-- output_bam
-- QC/.mapped.tsv.gz : (tag/tcount)
-- QC/.unmapped.tsv.gz
-- [QC/.MarkDuplicates.txt.gz]
+- output_bam with 'CB' tags added
 
 ### 4. Filter barcodes from bam file 
-only save barcodes listed to bam to file
+save barcodes listed to bam
 ```shell
     dscHiCtools filterBarcode \
-        --input_bam output/test.cellbarcoded.bam  \
-        --output_bam output/test.filtered.bam \
+        --input_bam $outdir/${sampleid}.cellbarcoded.bam \
+        --output_bam $outdir/${sampleid}.filtered.bam \
         --barcode_file barcodes.tsv.gz \
-        --threads n
+        --threads $threads \
+        --samtools $samtools # default: Your Environment Variables
 ```
 #### outputs
-    .filtered.bam
+- .filtered.bam
 
 
 ### 5. Split into single cells
-split bam into different files by cell barcodes
-
-Set `ulimit -n 65535` if you encounter error of "Too many open files"
+split bam into different bam files by cell barcodes
 ```shell
     dscHiCtools splitBarcode \
         --input_bam INPUT_BAM \
         --outdir "." \
-        --barcode_file cellbarcode.txt \ ## cellbarcode
-        --threads n 
+        --barcode_file cellbarcode.tsv.gz \ # cellbarcodes to split
+        --threads $threads \
+        --samtools $samtools # default: Your Environment Variables
 ```
 #### outputs
-    .sc.bam
+- .sc.bam
 
 
 ### 6. Merge sub-cluster single cells to pseudo-bulk
@@ -83,13 +83,63 @@ merge and then convet to .hic and .mcool file
     dscHiCtools sub2cool \
         --input_pairs mESC.contacts.pairs.txt.gz \
         --outdir "." \
-        --metadata cellbarcode_group.metadata.txt \ ## No-header: cellbarcode, sub-cluster
-        --threads n \
+        --metadata cellbarcode_group.metadata.txt \
+        --threads $threads \
         --species mm10 \
-        --resolution 10000 20000 50000 \ ## separated by " " 
-        -n ## if set, don't normalize matrices 
+        --resolution 1000000 50000 \ ## separated by " "
+        -n \ ## if set, don't normalize matrices 
+        --cooler /share/home/wangmx/anaconda3/envs/cooler/bin/cooler \ # cooler executable path
+        --hic2cool /share/home/wangmx/anaconda3/envs/cooler/bin/hic2cool \ # hic2cool executable path
+        --juicer "java -Xmx64G -jar /share/home/wangmx/software/juicer/scripts/common/juicer_tools_1.22.01.jar" \ # juicer executable path
 ```
-default resolution choice: ["1000", "2000", "5000", "10000", "25000", "50000", "100000", "250000", "500000", "1000000", "2500000"]
+#### Metadata format ("\t" separated)
+```shell
+cellbarcode     group
+AACTGGTAGAATATCG        HCT-116
+TTTGGTTAGTTACCAC        HCT-116
+ATCCCTGGTTAACCGT        HCT-116
+AGGCGTCAGAAATCTG        eHAP
+ATCCTCGAGTACAGTA        HCT-116
+ATTGTCTTCAACTTGG        HCT-116
+AAATGAGAGGTCTTTG        HCT-116
+```
+#### outputs
+- sub_cluster.contacts.pairs.txt.gz (4DN format)
+- sub_cluster.hic
+- sub_cluster.mcool
+
+### 7. scA/B value calculation
+calculate scA/B matrix for dscHiC data
+```shell
+    dscHiCtools scAB \
+        --input_contact_pairs $outdir/$sampleid.contacts.paris.txt.gz \
+        --output $outdir/$sampleid.AB_value.txt.gz \
+        --weighted True \
+        --ref_CpG $ref_cpg \
+        --barcode_kept $outdir/cellbarcodes.txt \
+        --input_format "scVI-3d" \
+        --cores $SLURM_CPUS_PER_TASK 
+```
+#### input_format
+- scVI-3d, use `.scVI_imputed.contacts.paris.txt.gz`
+- raw (as Tan 2018 described) use `.contacts.paris.txt.gz`
+- higashi_imputed, use `.hdf5` generated by higashi
+
+#### ref_cpg file format
+```shell
+chr1    0       0.016217
+chr1    1000000 0.037035
+chr1    2000000 0.030277
+chr1    3000000 0.028140
+chr1    4000000 0.013604
+chr1    5000000 0.013502
+chr1    6000000 0.022897
+chr1    7000000 0.015870
+chr1    8000000 0.015044
+chr1    9000000 0.020502
+chr1    10000000        0.018762
+```
+- This file can be generated by dip-C (https://github.com/tanlongzhi/dip-c)
 #### outputs
 - sub_cluster.contacts.pairs.txt.gz (4DN format)
 - sub_cluster.hic
