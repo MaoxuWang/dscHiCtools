@@ -4,7 +4,7 @@ print (setuptools.find_packages())
 
 setuptools.setup(
     name="dscHiCtools",
-    version="1.1",
+    version="1.2",
     author="Maoxu Wang",
     author_email="maoxuwang@stu.pku.edu.cn",
     description="A python package to process demultiplexed single cell Hi-C data",
@@ -25,6 +25,7 @@ setuptools.setup(
         "pytest==6.2.5",
         "pandas>=0.23.4",
         "pybktree==1.1",
+        "cooler>=0.9.1"
     ],
     python_requires=">=3.6",
 )
