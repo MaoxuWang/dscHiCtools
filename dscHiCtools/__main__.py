@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 import pkg_resources
 from argparse import RawTextHelpFormatter
 from dscHiCtools import (
-    mapBarcode, tag2bam, filterBarcode, splitBarcode, sub2cool
+    mapBarcode, tag2bam, filterBarcode, splitBarcode, sub2cool, splitContacts, scAB
 )
 import os 
 
@@ -188,11 +188,18 @@ def parse_args():
     parser_splitBarcode.add_argument("--outdir",
                         required=True,
                         help="output directory")
+    parser_splitBarcode.add_argument("--n_reads",
+                        type=int,
+                        help="number of reads in sam.gz to process")
     parser_splitBarcode.add_argument(
                         "--barcode_file",
                         type=str,
                         required=True,
                         help="barcodes to save (.tsv or .tsv.gz)")
+    parser_splitBarcode.add_argument(
+                        "--prefix",
+                        type=str,
+                        help="Identifier appended to output name")
     parser_splitBarcode.add_argument(
                         "--threads",
                         type=int,
@@ -203,6 +210,10 @@ def parse_args():
                         type=str,
                         default="samtools",
                         help="samtools executable path")
+    parser_splitBarcode.add_argument(
+                        "--header",
+                        type=str,
+                        help="header for sam.gz")
     parser_splitBarcode.set_defaults(func=splitBarcode.main)
 
 
@@ -258,9 +269,14 @@ def parse_args():
                         required=True,
                         help="mm10 or hg38")
     parser_sub2cool.add_argument(
-                        "-n",
+                        "-n", "--normalize",
                         action='store_true',
-                        help="Don't normalize the matrices")
+                        help="if set, normalize the matrices")
+    parser_sub2cool.add_argument(
+                        "--suffix",
+                        type=str,
+                        default=".contacts.pairs.txt.gz",
+                        help="suffix of contact pairs file name")
     parser_sub2cool.set_defaults(func=sub2cool.main)
 
     # scAB value calculation
@@ -305,6 +321,59 @@ def parse_args():
     parser_scAB.add_argument("--cis_only",
                         action='store_true',
                         help="if set, only use cis contacts")
+    parser_scAB.set_defaults(func=scAB.main)
+
+    # splitContacts
+    parser_splitContacts = subparsers.add_parser(
+        "splitContacts", description=(
+            "split contacts pairs file into different files by cell barcodes.\n"
+            "Output: single cell contacts pairs file"
+        ),
+        formatter_class=RawTextHelpFormatter
+    )
+
+    parser_splitContacts.add_argument("--input_contacts",
+                        required=True,
+                        help="input contacts pairs txt(.gz) or directory for h5py file")
+    parser_splitContacts.add_argument("--outdir",
+                        required=True,
+                        help="output directory")
+    parser_splitContacts.add_argument(
+                        "--threads",
+                        type=int,
+                        default=10,
+                        help="threads")
+    parser_splitContacts.add_argument(
+                        "--n_lines",
+                        type=int,
+                        default=-1,
+                        help="Total lines to process. default: all lines")
+    parser_splitContacts.add_argument(
+                        "--format",
+                        type=str,
+                        choices=["pairs", "h5py"],
+                        default="pairs",
+                        help="Pairs of h5py file to split. default: pair file format")
+    parser_splitContacts.add_argument(
+                        "--id_convert_file",
+                        type=str,
+                        help="Cell id to cell barcode (higashi required)")
+    parser_splitContacts.add_argument(
+                        "--header",
+                        action='store_true',
+                        help="Whether to output pairs header. default: False")
+    parser_splitContacts.add_argument(
+                        "--neighbour",
+                        type=int,
+                        default=5,
+                        help="whether to use neighbor information to impute (higashi parameters)")
+    parser_splitContacts.add_argument("--barcode_file",
+                        help="barcodes to save (.tsv or .tsv.gz) default: save all")
+    parser_splitContacts.add_argument("--resolution",
+                        default=1000000,
+                        type=int,
+                        help="resolution for each bin default: 1Mb")
+    parser_splitContacts.set_defaults(func=splitContacts.main)
 
     return parser
 

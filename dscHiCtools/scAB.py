@@ -127,7 +127,7 @@ def smoothContactsMC(df,
         color_data = defaultdict(lambda: [])
         for _, row in df.iterrows():
             ## filter barcode
-            if( row["cell_barcode"] not in barcode ):
+            if( barcode is not None and row["cell_barcode"] not in barcode ):
                 continue
             if cis_only:
                 if( row["chr1"] != row["chr2"] ):
@@ -143,7 +143,7 @@ def smoothContactsMC(df,
     else:
         color_data = defaultdict(lambda: [])
         for _, row in df.iterrows():
-            if( row["cell_barcode"] not in barcode ):
+            if( barcode is not None and row["cell_barcode"] not in barcode ):
                 continue
             if cis_only:
                 if( row["chr1"] != row["chr2"] ):
@@ -342,6 +342,7 @@ def main(args):
                 barcode.columns = ["cell_barcode"]
                 barcode = list(barcode['cell_barcode'])
             else:
+                barcode = None
                 utils.eprint("[scAB::] Keeping all barcodes")
             n_line = get_n_lines(args.input_contact_pairs, "pairs")
             chunkSize = ceil(n_line / args.cores)

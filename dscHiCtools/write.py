@@ -62,9 +62,14 @@ def write_mapped(
     Returns:
         file outpu: sample.unmapped.tsv.gz
     """
+    _num = 0
+    for element in merged_match:
+        _num += merged_match[element]
+
     with gzip.open(os.path.join(outfolder, filename),'wb') as known_file:
         for element in merged_match:
             known_file.write(f'{element}\t{str(merged_match[element])}\n'.encode())
+    return _num
 
 
 def write_unmapped(
@@ -83,12 +88,16 @@ def write_unmapped(
     Returns:
         file outpu: sample.unmapped.tsv.gz
     """
-    
+    _num = 0
+    for element in merged_no_match:
+        _num += merged_no_match[element]
+
     top_unmapped = merged_no_match.most_common(top_unknowns)
 
     with gzip.open(os.path.join(outfolder, filename),'wb') as unknown_file:
         for element in top_unmapped:
             unknown_file.write(f'{element[0]}\t{str(element[1])}\n'.encode())
+    return _num
 
 
 def write_4DN_contacts(

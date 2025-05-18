@@ -144,3 +144,15 @@ chr1    10000000        0.018762
 - sub_cluster.contacts.pairs.txt.gz (4DN format)
 - sub_cluster.hic
 - sub_cluster.mcool
+
+
+### 8. Split contacts pairs file to single-cell level
+Split raw contacts pairs file to small single-cell level files
+```shell
+    dscHiCtools splitContacts \
+        --input_contacts $outdir/$sampleid.contacts.paris.txt.gz \
+        --outdir $outdir/sc_contacts \
+        --threads $threads \
+        --barcode_file $outdir/cellbarcodes.txt
+```
+barcode_file is a txt file stores single-cell barcodes of interest.

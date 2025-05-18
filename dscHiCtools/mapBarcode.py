@@ -190,8 +190,8 @@ def main(args):
         utils.eprint(f"[mapBarcode::] Creating DNA <-> RNA barcodes dictionary...")
 
         RNA_to_DNA, DNA_to_RNA = utils.multiomeBarcodesDict(args.multiome_RNA_barcode, args.multiome_DNA_barcode)
-        ## create barcde tree
-        RNA_barcodes = utils.readBarcode(args.ref_barcode)
+        ## create barcde tree from RNA barcodes (all from arc)
+        RNA_barcodes = utils.readBarcode(args.multiome_RNA_barcode)
         barcode_tree = makeBKtree(RNA_barcodes, RNA_to_DNA)
     else:
         DNA_barcodes = utils.readBarcode(args.ref_barcode)
@@ -307,12 +307,15 @@ def main(args):
     unmapped_file = args.sampleName + ".unmapped.tsv.gz"
     mapped_file = args.sampleName + ".mapped.tsv.gz"
 
+    with open(os.path.join(outfolder, args.sampleName + ".total_readsN.txt"), 'w') as read_f:
+        read_f.write(str(n_reads))
+
+    ### mapped barcode
+    write_mapped(mappedMtx, outfolder, mapped_file)
+
     ### unmapped barcode
     write_unmapped(
         merged_no_match=unmappedMtx,
         outfolder=outfolder,
         filename=unmapped_file,
     )
-
-    ### mapped barcode
-    write_mapped(mappedMtx, outfolder, mapped_file)

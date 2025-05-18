@@ -38,6 +38,17 @@ def log_info(func):
     return wrapper
 
 
+def getPrefix(prefix_s):
+    if prefix_s is not None:
+        if prefix_s[-1::] != "_":
+            prefix = prefix_s + "_"
+        else:
+            prefix = prefix_s
+    else:
+        prefix = ""
+    return prefix
+
+
 ## get reverse reads 5'-3'
 def reverseRead(read):
     """
